@@ -18,6 +18,7 @@ use livesplit_core::{
 };
 use tauri::{
     webview::NewWindowResponse, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+    WindowEvent,
 };
 
 mod constants;
@@ -273,6 +274,23 @@ fn main() {
                 .replace(main_window.clone());
             *sink.0.write().unwrap() = Some(main_window);
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if !matches!(event, WindowEvent::Destroyed) || window.label() != MAIN_WINDOW_LABEL {
+                return;
+            }
+
+            let popouts: Vec<_> = window
+                .app_handle()
+                .webview_windows()
+                .into_iter()
+                .filter(|(label, _)| label.starts_with(POPOUT_WINDOW_LABEL_PREFIX))
+                .map(|(_, popout)| popout)
+                .collect();
+
+            for popout in popouts {
+                let _ = popout.destroy();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             set_hotkey_config,
